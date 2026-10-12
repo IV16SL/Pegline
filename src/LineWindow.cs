@@ -169,6 +169,9 @@ namespace Pegline
 
             slider.RenderTransform = slide;
             slider.Children.Add(rope);
+            // The rope is static between width changes: cache its raster so
+            // the software renderer does not redo the blurred shadow per frame.
+            rope.CacheMode = new BitmapCache();
             hint.CornerRadius = new CornerRadius(14);
             hint.Background = Frame.Glass();
             hint.BorderBrush = Frame.Edge();
@@ -352,11 +355,13 @@ namespace Pegline
             }
             slide.Y = slideSpring.Value;
 
+            // Fully tucked away: every value above is pinned, so there is
+            // nothing to step or lay out until the next reveal.
+            if (!line.Revealed && hideT >= 1) return;
+
             hintOpacity += ((line.Items.Count == 0 ? 1 : 0) - hintOpacity) * Math.Min(1, dt / 0.3 * 2);
             hint.Opacity = hintOpacity;
-            hint.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
-            Canvas.SetLeft(hint, width / 2 - hint.DesiredSize.Width / 2);
-            Canvas.SetTop(hint, Layout.RopeY(width / 2, width) + 34 - hint.DesiredSize.Height / 2);
+            LayoutHint(width);
 
             for (int i = 0; i < line.Items.Count; i++)
             {
@@ -364,6 +369,19 @@ namespace Pegline
                 if (cards.TryGetValue(line.Items[i].Id, out card))
                     card.Step(dt, Layout.X(i, line.Items.Count, width), width);
             }
+        }
+
+        double hintLayoutWidth = -1;
+
+        /// The hint text never changes, so measure and center it only when
+        /// the width it centers in does.
+        void LayoutHint(double width)
+        {
+            if (Math.Abs(width - hintLayoutWidth) < 0.5) return;
+            hintLayoutWidth = width;
+            hint.Measure(new Size(double.PositiveInfinity, double.PositiveInfinity));
+            Canvas.SetLeft(hint, width / 2 - hint.DesiredSize.Width / 2);
+            Canvas.SetTop(hint, Layout.RopeY(width / 2, width) + 34 - hint.DesiredSize.Height / 2);
         }
     }
 }
