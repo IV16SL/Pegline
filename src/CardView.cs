@@ -107,6 +107,8 @@ namespace Pegline
         readonly DropShadowEffect shadow = new DropShadowEffect { Direction = 270, Color = Colors.Black };
         readonly RotateTransform rotate = new RotateTransform();
         readonly ScaleTransform scale = new ScaleTransform(1, 1);
+        readonly ScaleTransform crossScale = new ScaleTransform(1, 1, 10, 10);
+        readonly TranslateTransform copiedSlide = new TranslateTransform();
 
         // Every moving value owns a spring.
         public readonly Spring X;
@@ -128,6 +130,12 @@ namespace Pegline
             Width = Layout.CardWidth;
             RenderTransform = rotate;
             rotate.CenterX = Layout.CardWidth / 2;
+            // Photos, glass and shadows rasterize once; per-frame motion is
+            // transforms and opacity, which the cache carries for free. This
+            // matters because the transparent window renders in software.
+            CacheMode = new BitmapCache();
+            cross.RenderTransform = crossScale;
+            copiedLabel.RenderTransform = copiedSlide;
 
             frame.CornerRadius = new CornerRadius(Frame.Radius);
             frame.Background = Frame.Glass();
@@ -310,9 +318,9 @@ namespace Pegline
             Opacity = opacity;
             frameHost.Opacity = dragging ? 0.45 : 1;
             cross.Opacity = dragging ? 0 : crossOpacity;
-            cross.RenderTransform = new ScaleTransform(0.6 + 0.4 * crossOpacity, 0.6 + 0.4 * crossOpacity, 10, 10);
+            crossScale.ScaleX = crossScale.ScaleY = 0.6 + 0.4 * crossOpacity;
             copiedLabel.Opacity = copiedOpacity;
-            copiedLabel.RenderTransform = new TranslateTransform(0, -4 * (1 - copiedOpacity));
+            copiedSlide.Y = -4 * (1 - copiedOpacity);
         }
 
         public bool InCross(Point p)
