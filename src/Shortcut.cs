@@ -2,6 +2,7 @@ using System;
 using System.Linq;
 using System.Windows;
 using System.Windows.Controls;
+using System.Windows.Data;
 using System.Windows.Input;
 using System.Windows.Media;
 
@@ -87,6 +88,10 @@ namespace Pegline
     }
 
     /// Asks for a new combination by having you press it.
+    /// Fluent-styled to look like a WinUI 3 dialog: Segoe UI Variable type,
+    /// 4px rounded buttons, and the WinUI 3 light-theme palette. The key
+    /// capture behavior is unchanged: buttons never take focus and the
+    /// input method stays off so every key press reaches the window.
     class ShortcutDialog : Window
     {
         readonly Func<Shortcut, string> apply;
@@ -109,45 +114,54 @@ namespace Pegline
             WindowStartupLocation = WindowStartupLocation.CenterScreen;
             Topmost = true;
             ShowInTaskbar = true;
+            // WinUI 3 dialog surface.
+            Background = new SolidColorBrush(Color.FromRgb(0xF9, 0xF9, 0xF9));
+            FontFamily = new FontFamily("Segoe UI Variable Text, Segoe UI");
             // Keys go straight to the dialog: a Chinese or Japanese input
             // method would otherwise swallow a lone letter into a composition.
             InputMethod.SetIsInputMethodEnabled(this, false);
 
-            var panel = new StackPanel { Margin = new Thickness(22, 18, 22, 18), Width = 360 };
+            var panel = new StackPanel { Margin = new Thickness(24, 20, 24, 20), Width = 380 };
             panel.Children.Add(new TextBlock
             {
                 TextWrapping = TextWrapping.Wrap,
+                FontSize = 14,
+                Foreground = new SolidColorBrush(Color.FromRgb(0x1B, 0x1B, 0x1B)),
                 Text = Loc.L("Press the keys you want to use. Include Ctrl, Alt, Shift or Win, or use F1–F24 or PrtScn on their own.",
                              "Pulsa las teclas que quieras usar. Incluye Ctrl, Alt, Mayús o Win, o usa F1–F24 o ImprPant solas.",
                              "直接按下想用的组合键。需要包含 Ctrl、Alt、Shift 或 Win；F1–F24、PrtScn 可以单独使用。")
             });
-            combo.FontSize = 22;
+            combo.FontSize = 24;
             combo.FontWeight = FontWeights.SemiBold;
             combo.HorizontalAlignment = HorizontalAlignment.Center;
+            combo.Foreground = new SolidColorBrush(Color.FromRgb(0x1B, 0x1B, 0x1B));
             combo.Text = current != null ? current.ToString() : Loc.L("None", "Ninguno", "未设置");
             panel.Children.Add(new Border
             {
-                Margin = new Thickness(0, 14, 0, 6), Padding = new Thickness(10), CornerRadius = new CornerRadius(6),
-                BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromRgb(200, 200, 200)),
-                Background = new SolidColorBrush(Color.FromRgb(248, 248, 248)), Child = combo
+                Margin = new Thickness(0, 12, 0, 4), Padding = new Thickness(12), CornerRadius = new CornerRadius(4),
+                BorderThickness = new Thickness(1), BorderBrush = new SolidColorBrush(Color.FromRgb(0xE1, 0xE1, 0xE1)),
+                Background = new SolidColorBrush(Color.FromRgb(0xFF, 0xFF, 0xFF)), Child = combo
             });
-            error.Foreground = new SolidColorBrush(Color.FromRgb(196, 43, 28));
+            error.Foreground = new SolidColorBrush(Color.FromRgb(0xC4, 0x2B, 0x1C));
+            error.FontSize = 12;
             error.TextWrapping = TextWrapping.Wrap;
             error.MinHeight = 18;
             panel.Children.Add(error);
 
-            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 10, 0, 0) };
+            Style plain = FluentButtonStyle(false);
+            Style accent = FluentButtonStyle(true);
+            var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Margin = new Thickness(0, 12, 0, 0) };
             // The buttons never take focus, so every key press reaches the window.
-            Func<string, Action, Button> button = (text, act) =>
+            Func<string, Action, Style, Button> button = (text, act, style) =>
             {
-                var b = new Button { Content = text, Padding = new Thickness(14, 4, 14, 4), Margin = new Thickness(8, 0, 0, 0), Focusable = false };
+                var b = new Button { Content = text, Margin = new Thickness(8, 0, 0, 0), Focusable = false, Style = style };
                 b.Click += delegate { act(); };
                 buttons.Children.Add(b);
                 return b;
             };
-            button(Loc.L("No shortcut", "Sin atajo", "不使用快捷键"), () => Choose(null));
-            button(Loc.L("Cancel", "Cancelar", "取消"), Close);
-            ok = button(Loc.L("OK", "Aceptar", "确定"), () => { if (pressed != null) Choose(pressed); });
+            button(Loc.L("No shortcut", "Sin atajo", "不使用快捷键"), () => Choose(null), plain);
+            button(Loc.L("Cancel", "Cancelar", "取消"), Close, plain);
+            ok = button(Loc.L("OK", "Aceptar", "确定"), () => { if (pressed != null) Choose(pressed); }, accent);
             ok.IsEnabled = false;
             panel.Children.Add(buttons);
             Content = panel;
@@ -160,6 +174,72 @@ namespace Pegline
                 if (k == Key.Snapshot) { e.Handled = true; Pressed(e, true); }
             };
             Loaded += delegate { Activate(); Focus(); };
+        }
+
+        /// A WinUI 3 style button built in code: 4px rounded corners, 1px
+        /// stroke, 32px tall, with hover / pressed / disabled states.
+        /// accent=true renders the blue primary button (used for OK).
+        static Style FluentButtonStyle(bool accent)
+        {
+            // WinUI 3 light-theme palette.
+            Color bg     = accent ? Color.FromRgb(0x00, 0x67, 0xC0) : Color.FromRgb(0xFF, 0xFF, 0xFF);
+            Color stroke = accent ? Color.FromRgb(0x00, 0x67, 0xC0) : Color.FromRgb(0xE1, 0xE1, 0xE1);
+            Color fg     = accent ? Color.FromRgb(0xFF, 0xFF, 0xFF) : Color.FromRgb(0x1B, 0x1B, 0x1B);
+            Color hoverBg     = accent ? Color.FromRgb(0x19, 0x72, 0xC2) : Color.FromRgb(0xF9, 0xF9, 0xF9);
+            Color hoverStroke = accent ? Color.FromRgb(0x19, 0x72, 0xC2) : Color.FromRgb(0xD1, 0xD1, 0xD1);
+            Color downBg     = accent ? Color.FromRgb(0x00, 0x58, 0xA9) : Color.FromRgb(0xF5, 0xF5, 0xF5);
+            Color downStroke = accent ? Color.FromRgb(0x00, 0x58, 0xA9) : Color.FromRgb(0xC7, 0xC7, 0xC7);
+
+            var style = new Style(typeof(Button));
+
+            // Rounded frame that follows whatever the triggers set on the
+            // button itself, through templated-parent bindings.
+            var frame = new FrameworkElementFactory(typeof(Border), "frame");
+            frame.SetValue(Border.CornerRadiusProperty, new CornerRadius(4));
+            frame.SetBinding(Border.BackgroundProperty, TemplatedParentBinding(Button.BackgroundProperty));
+            frame.SetBinding(Border.BorderBrushProperty, TemplatedParentBinding(Button.BorderBrushProperty));
+            frame.SetBinding(Border.BorderThicknessProperty, TemplatedParentBinding(Button.BorderThicknessProperty));
+            var content = new FrameworkElementFactory(typeof(ContentPresenter));
+            content.SetValue(ContentPresenter.HorizontalAlignmentProperty, HorizontalAlignment.Center);
+            content.SetValue(ContentPresenter.VerticalAlignmentProperty, VerticalAlignment.Center);
+            content.SetValue(FrameworkElement.MarginProperty, new Thickness(12, 0, 12, 0));
+            frame.AppendChild(content);
+            style.Setters.Add(new Setter(Button.TemplateProperty, new ControlTemplate(typeof(Button)) { VisualTree = frame }));
+
+            style.Setters.Add(new Setter(Button.BackgroundProperty, new SolidColorBrush(bg)));
+            style.Setters.Add(new Setter(Button.BorderBrushProperty, new SolidColorBrush(stroke)));
+            style.Setters.Add(new Setter(Button.BorderThicknessProperty, new Thickness(1)));
+            style.Setters.Add(new Setter(Button.ForegroundProperty, new SolidColorBrush(fg)));
+            style.Setters.Add(new Setter(Button.HeightProperty, 32.0));
+            style.Setters.Add(new Setter(Button.MinWidthProperty, 96.0));
+            style.Setters.Add(new Setter(Button.FontSizeProperty, 14.0));
+
+            // Later triggers win, so disabled comes last.
+            style.Triggers.Add(StateTrigger(Button.IsMouseOverProperty,
+                new Setter(Button.BackgroundProperty, new SolidColorBrush(hoverBg)),
+                new Setter(Button.BorderBrushProperty, new SolidColorBrush(hoverStroke))));
+            style.Triggers.Add(StateTrigger(Button.IsPressedProperty,
+                new Setter(Button.BackgroundProperty, new SolidColorBrush(downBg)),
+                new Setter(Button.BorderBrushProperty, new SolidColorBrush(downStroke))));
+            var disabled = new Trigger { Property = Button.IsEnabledProperty, Value = false };
+            disabled.Setters.Add(new Setter(Button.BackgroundProperty, new SolidColorBrush(Color.FromRgb(0xF5, 0xF5, 0xF5))));
+            disabled.Setters.Add(new Setter(Button.BorderBrushProperty, new SolidColorBrush(Color.FromRgb(0xE1, 0xE1, 0xE1))));
+            disabled.Setters.Add(new Setter(Button.ForegroundProperty, new SolidColorBrush(Color.FromRgb(0x9D, 0x9D, 0x9D))));
+            style.Triggers.Add(disabled);
+
+            return style;
+        }
+
+        static Trigger StateTrigger(DependencyProperty property, params Setter[] setters)
+        {
+            var trigger = new Trigger { Property = property, Value = true };
+            foreach (var s in setters) trigger.Setters.Add(s);
+            return trigger;
+        }
+
+        static Binding TemplatedParentBinding(DependencyProperty property)
+        {
+            return new Binding(property.Name) { RelativeSource = new RelativeSource(RelativeSourceMode.TemplatedParent) };
         }
 
         void Pressed(KeyEventArgs e, bool released)
